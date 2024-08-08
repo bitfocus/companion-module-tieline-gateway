@@ -11,7 +11,6 @@ const { makeRequest } = require('./api')
 const matrix = require('./matrix')
 const heartbeat = require('./heartbeat')
 
-
 class ModuleInstance extends InstanceBase {
     constructor(internal) {
         super(internal)
@@ -21,80 +20,120 @@ class ModuleInstance extends InstanceBase {
         this.nonce = null
         this.ncCounter = 1
         this.heartbeatInterval = null
-		this.lastAuthTime = null
-		this.connectionFailed = false
+        this.lastAuthTime = null
+        this.connectionFailed = false
+        this.reconnectTimeout = null
+        this.reconnectAttempts = 0
     }
 
     async init(config) {
-		this.config = config
-		this.updateStatus(InstanceStatus.Ok)
-		this.updateFeedbacks()
-		this.updateVariableDefinitions()
-	
-		if (!this.config.host || !this.config.username || !this.config.password) {
-			this.log('warn', 'Module not configured yet. Please configure the module settings.')
-			this.updateStatus(InstanceStatus.BadConfig)
-			return
-		}
-	
-		this.log('info', 'Initializing tieline gateway module')
-		try {
-			await this.authenticate()
-			await matrix.fetchMatrixFeatures(this)
-			this.log('debug', `Variables after initialization: ${JSON.stringify(this.matrixVariables)}`)
-			this.updateActions() // Move this here, after fetching matrix features
-			this.startHeartbeat()
-		} catch (error) {
-			this.log('error', `Initialization failed: ${error.message}`)
-			this.updateStatus(InstanceStatus.ConnectionFailure)
-		}
-	}
+        this.config = config
+        this.updateStatus(InstanceStatus.Connecting)
+        this.updateFeedbacks()
+        this.updateVariableDefinitions()
+
+        if (!this.config.host || !this.config.username || !this.config.password) {
+            this.log('warn', 'Module not configured yet. Please configure the module settings.')
+            this.updateStatus(InstanceStatus.BadConfig)
+            return
+        }
+
+        this.log('info', 'Initializing tieline gateway module')
+        await this.connect()
+    }
+
+	// The regular connect function
+    async connect() {
+        try {
+            await this.authenticate()
+            await matrix.fetchMatrixFeatures(this)
+            this.log('debug', `Variables after initialization: ${JSON.stringify(this.matrixVariables)}`)
+            this.updateActions()
+            this.startHeartbeat()
+            this.updateStatus(InstanceStatus.Ok)
+            this.connectionFailed = false
+            this.reconnectAttempts = 0
+        } catch (error) {
+            this.log('error', `Connection failed: ${error.message}`)
+            this.updateStatus(InstanceStatus.ConnectionFailure)
+            this.connectionFailed = true
+            this.scheduleReconnect()
+        }
+    }
+
+	//If we loose access, this should handle reconnecting
+    scheduleReconnect() {
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout)
+        }
+        const delay = Math.min(30000, 1000 * Math.pow(2, this.reconnectAttempts))
+        this.reconnectAttempts++
+        this.reconnectTimeout = setTimeout(() => this.connect(), delay)
+        this.log('info', `Scheduling reconnect attempt in ${delay}ms`)
+    }
 
     async configUpdated(config) {
-		this.config = config
-	
-		if (!this.config.host || !this.config.username || !this.config.password) {
-			this.log('warn', 'Module not fully configured. Please configure all required settings.')
-			this.updateStatus(InstanceStatus.BadConfig)
-			return
-		}
-	
-		try {
-			await this.authenticate()
-			await matrix.fetchMatrixFeatures(this)
-			this.updateActions() // Refresh actions after fetching new data
-			this.startHeartbeat()
-			this.updateStatus(InstanceStatus.Ok)
-		} catch (error) {
-			this.log('error', `Configuration update failed: ${error.message}`)
-			this.updateStatus(InstanceStatus.ConnectionFailure)
-		}
-	}
+        this.config = config
 
-	async authenticate() {
-		if (!this.config.host || !this.config.username || !this.config.password) {
-			throw new Error('Module not fully configured')
-		}
-		const result = await auth.authenticate(this)
-		if (result) {
-			this.authHeader = result.authHeader
-			this.csrfToken = result.csrfToken
-			this.realm = result.realm
-			this.nonce = result.nonce
-			return true
-		}
-		throw new Error('Authentication failed')
-	}
+        if (!this.config.host || !this.config.username || !this.config.password) {
+            this.log('warn', 'Module not fully configured. Please configure all required settings.')
+            this.updateStatus(InstanceStatus.BadConfig)
+            return
+        }
 
-	startHeartbeat() {
+        this.stopHeartbeat()
+        await this.connect()
+    }
+
+    async authenticate() {
+        if (!this.config.host || !this.config.username || !this.config.password) {
+            throw new Error('Module not fully configured')
+        }
+        const result = await auth.authenticate(this)
+        if (result) {
+            this.authHeader = result.authHeader
+            this.csrfToken = result.csrfToken
+            this.realm = result.realm
+            this.nonce = result.nonce
+            return true
+        }
+        throw new Error('Authentication failed')
+    }
+
+	// We need a heartbeat at least every 60 seconds to renew the nounce digest auth.
+	// I don't know if this is just my implementation, but I can see in the chrome inspector that the tieline config page does this with a pid request, so I'm doing it too.
+	// I tried without, but that lead to disconnections due to 401 after a few minuttes.
+    startHeartbeat() {
+        this.stopHeartbeat()
         heartbeat.startHeartbeat(this)
         this.heartbeatInterval = setInterval(async () => {
-            const result = await heartbeat.sendHeartbeat(this)
-            if (result) {
-                this.authHeader = result.authHeader
-                this.csrfToken = result.csrfToken
+            try {
+                const result = await heartbeat.sendHeartbeat(this)
+                if (result) {
+                    this.authHeader = result.authHeader
+                    this.csrfToken = result.csrfToken
+                }
+            } catch (error) {
+                this.log('warn', `Heartbeat failed: ${error.message}`)
+                this.updateStatus(InstanceStatus.ConnectionFailure)
+                this.stopHeartbeat()
+                this.scheduleReconnect()
             }
-        }, 60000) // 60 seconds
+        }, 30000) // 30 seconds
+    }
+
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval)
+            this.heartbeatInterval = null
+        }
+    }
+
+    destroy() {
+        this.stopHeartbeat()
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout)
+        }
     }
 
 	getConfigFields() {
