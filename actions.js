@@ -31,9 +31,9 @@ module.exports = function (self) {
                 self.log('info', `Action triggered: Input ${event.options.input} to Output ${event.options.output}`);
                 const result = await matrix.makeMatrixRequest(self, event.options.output, event.options.input);
                 if (result) {
-                    self.log('info', `Matrix updated successfully: ${event.options.output} -> ${event.options.input}`);
+                    self.log('info', `Matrix updated successfully: ${event.options.input} -> ${event.options.output}`);
                 } else {
-                    self.log('warn', `Failed to update matrix: ${event.options.output} -> ${event.options.input}`);
+                    self.log('warn', `Failed to update matrix: ${event.options.input} -> ${event.options.output}`);
                 }
             },
         },
