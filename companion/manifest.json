@@ -3,7 +3,7 @@
 	"name": "Tieline",
 	"shortname": "Tieline",
 	"description": "This module controls the tieline 8 and 16ch codec. It has been developed during the Paris 2024 Olympics, so I have only implemented controlling the headphone output because I didn't dare doing anything with the outputs, because we where broadcasting on the codec constantly",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"license": "MIT",
 	"repository": "git+https://github.com/bitfocus/companion-module-tieline-gw8-16.git",
 	"bugs": "https://github.com/bitfocus/companion-module-tieline-gw8-16/issues",
@@ -21,6 +21,6 @@
 	},
 	"legacyIds": [],
 	"manufacturer": "Tieline",
-	"products": ["Gateway"],
+	"products": ["Gateway", "Via"],
 	"keywords": []
 }
