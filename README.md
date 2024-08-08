@@ -1,6 +1,6 @@
 # companion-module-tieline-gateway
 
-See [HELP.md](./companion/HELP.md) and [LICENSE](./LICENSE)
+To read about how the end user should configure the companion module see [HELP.md](./companion/HELP.md) 
 
 ## The companion module for tieline gateways
 
@@ -14,3 +14,5 @@ I have developed by reverse engineering by using in inspector while accessing th
 So it should be possible to reverse engineer any feature of the codec. 
 
 Let me know if you have any specific features you're missing, the I'll try and work on it, though my time is limited.
+
+See [LICENSE](./LICENSE)

@@ -1,5 +1,5 @@
 ## Configuration
-Fill our the tieline ip address, username and password. 
+Fill in the tieline ip-address, username and password. 
 As of this moment the companion module uses the standard port 8080. 
 Let me know if you need to use another port, then I'll implement the possibility to set a costum port.
 
