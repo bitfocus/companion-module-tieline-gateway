@@ -4,7 +4,7 @@ See [HELP.md](./companion/HELP.md) and [LICENSE](./LICENSE)
 
 ## The companion module for tieline gateways
 
-During the Paris 2024 Olympics I was manning our control room in IBC. 
+During the Paris 2024 Olympics I was working our control room in IBC. 
 One of the tasks was keeping an eye on the tieline gateway that we used to send home commentary audio from the OBS commentary positions on the different venues, back to our MCR. 
 To do this I had an analoge monitor connected to the headphone output, so I could monitor anything in the matrix in the gateway. 
 
