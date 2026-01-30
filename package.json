@@ -16,7 +16,7 @@
 		"xml2js": "^0.6.2"
 	},
 	"devDependencies": {
-		"@companion-module/tools": "^1.4.2"
+		"@companion-module/tools": "^1.5.2"
 	},
 	"prettier": "@companion-module/tools/.prettierrc.json"
 }
